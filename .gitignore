@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# App data (local tasks — optional: commit an empty example instead)
+tasks.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
