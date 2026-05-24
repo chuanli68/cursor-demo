@@ -16,9 +16,11 @@ ANSI_BOLD = "\033[1m"
 ANSI_DIM = "\033[2m"
 
 def colored(text: str, color: str) -> str:
+    """Wrap text in an ANSI color code and reset sequence."""
     return f"{color}{text}{ANSI_RESET}"
 
 def cmd_list(store: TaskStore) -> int:
+    """Print all tasks with color coding: green/dim for done, yellow/bold for pending."""
     tasks = store.list_all()
     if not tasks:
         print("No tasks yet. Try: python3 main.py add \"Your first task\"")
@@ -37,6 +39,7 @@ def cmd_list(store: TaskStore) -> int:
 
 
 def cmd_add(store: TaskStore, title: str, due: str | None = None) -> int:
+    """Add a new task and print confirmation; returns exit code 1 on validation error."""
     try:
         task = store.add(title, due=due)
     except ValueError as exc:
@@ -48,6 +51,7 @@ def cmd_add(store: TaskStore, title: str, due: str | None = None) -> int:
 
 
 def cmd_done(store: TaskStore, task_id: int) -> int:
+    """Mark a task as complete by ID; returns exit code 1 if ID not found."""
     try:
         task = store.mark_done(task_id)
     except KeyError as exc:
@@ -58,6 +62,7 @@ def cmd_done(store: TaskStore, task_id: int) -> int:
 
 
 def cmd_delete(store: TaskStore, task_id: int) -> int:
+    """Delete a task by ID; returns exit code 1 if ID not found."""
     try:
         task = store.delete(task_id)
     except KeyError as exc:
@@ -68,6 +73,7 @@ def cmd_delete(store: TaskStore, task_id: int) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Configure and return the argument parser with all subcommands."""
     parser = argparse.ArgumentParser(
         description="Cursor demo — simple task tracker",
     )
@@ -93,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Entry point: parse args and dispatch to the appropriate command handler."""
     parser = build_parser()
     args = parser.parse_args(argv)
     store = TaskStore()
