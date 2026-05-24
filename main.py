@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""CLI for the Cursor demo task tracker."""
+"""
+CLI for the Cursor demo task tracker.
+
+Commands are implemented as subcommands (list, add, done, delete). Each handler
+returns an integer exit code: 0 for success, 1 for user-facing errors (bad id,
+invalid date). This follows Unix conventions so scripts can check $?.
+
+Usage examples:
+    python3 main.py list
+    python3 main.py add "Buy milk" --due 2026-06-01
+    python3 main.py done 3
+"""
 
 from __future__ import annotations
 
@@ -8,41 +19,73 @@ import sys
 
 from tasks import TaskStore
 
-# ANSI color codes
-ANSI_RESET = "\033[0m"
-ANSI_GREEN = "\033[32m"
-ANSI_YELLOW = "\033[33m"
-ANSI_BOLD = "\033[1m"
-ANSI_DIM = "\033[2m"
+# ---------------------------------------------------------------------------
+# Terminal styling (ANSI escape codes)
+# Most modern terminals support these; no extra dependency required.
+# ---------------------------------------------------------------------------
+ANSI_RESET = "\033[0m"   # Clear all attributes after colored segment
+ANSI_GREEN = "\033[32m"  # Completed tasks
+ANSI_YELLOW = "\033[33m" # Pending tasks (checkbox bracket)
+ANSI_BOLD = "\033[1m"    # Emphasize pending titles and ids
+ANSI_DIM = "\033[2m"     # De-emphasize completed task text
+
 
 def colored(text: str, color: str) -> str:
     """Wrap text in an ANSI color code and reset sequence."""
     return f"{color}{text}{ANSI_RESET}"
 
+
 def cmd_list(store: TaskStore) -> int:
-    """Print all tasks with color coding: green/dim for done, yellow/bold for pending."""
+    """
+    Print all tasks with color coding.
+
+    Format per line:
+        [x] id: title  (due: YYYY-MM-DD)
+        [ ] id: title  (due: —)
+
+    Done tasks use green/dim; pending use yellow/bold for the checkbox area.
+    """
     tasks = store.list_all()
     if not tasks:
         print("No tasks yet. Try: python3 main.py add \"Your first task\"")
         return 0
+
     for task in tasks:
+        # Checkbox column: "x" when done, space when still open.
         status = "x" if task.done else " "
+        # Em dash when no due date so columns align visually in the terminal.
         due_label = task.due if task.due else "—"
+
         if task.done:
-            # Green and dim for completed
-            line = f"  [{colored(status, ANSI_GREEN)}] {colored(str(task.id), ANSI_DIM)}: {colored(task.title, ANSI_GREEN+ANSI_DIM)}  (due: {colored(due_label, ANSI_DIM)})"
+            # Muted styling — task is finished, less visual noise.
+            line = (
+                f"  [{colored(status, ANSI_GREEN)}] "
+                f"{colored(str(task.id), ANSI_DIM)}: "
+                f"{colored(task.title, ANSI_GREEN + ANSI_DIM)}  "
+                f"(due: {colored(due_label, ANSI_DIM)})"
+            )
         else:
-            # Yellow and bold for pending
-            line = f"  [{colored(status, ANSI_YELLOW)}] {colored(str(task.id), ANSI_BOLD)}: {colored(task.title, ANSI_BOLD)}  (due: {due_label})"
+            # Brighter styling draws attention to actionable items.
+            line = (
+                f"  [{colored(status, ANSI_YELLOW)}] "
+                f"{colored(str(task.id), ANSI_BOLD)}: "
+                f"{colored(task.title, ANSI_BOLD)}  "
+                f"(due: {due_label})"
+            )
         print(line)
     return 0
 
 
 def cmd_add(store: TaskStore, title: str, due: str | None = None) -> int:
-    """Add a new task and print confirmation; returns exit code 1 on validation error."""
+    """
+    Add a new task and print confirmation.
+
+    Delegates validation to TaskStore.add() / parse_due().
+    """
     try:
         task = store.add(title, due=due)
     except ValueError as exc:
+        # Invalid --due format; message already user-friendly from tasks.py.
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     due_msg = f", due {task.due}" if task.due else ""
@@ -73,7 +116,12 @@ def cmd_delete(store: TaskStore, task_id: int) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Configure and return the argument parser with all subcommands."""
+    """
+    Configure the CLI argument parser.
+
+    Uses subparsers so each command has its own --help (e.g. main.py add --help).
+    dest="command" is checked in main() to dispatch to the right handler.
+    """
     parser = argparse.ArgumentParser(
         description="Cursor demo — simple task tracker",
     )
@@ -99,9 +147,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Entry point: parse args and dispatch to the appropriate command handler."""
+    """
+    Entry point: parse args and dispatch to the appropriate command handler.
+
+    Args:
+        argv: Optional argument list (defaults to sys.argv[1:]). Useful for tests.
+
+    Returns:
+        Process exit code (0 = success, 1 = error or unknown command).
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # Single store instance per invocation; loads tasks.json on init.
     store = TaskStore()
 
     if args.command == "list":
@@ -113,9 +171,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "delete":
         return cmd_delete(store, args.id)
 
+    # Should not happen when subparsers are required, but keeps mypy/humans happy.
     parser.print_help()
     return 1
 
 
 if __name__ == "__main__":
+    # raise SystemExit passes our int return value to the shell as exit code.
     raise SystemExit(main())
