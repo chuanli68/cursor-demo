@@ -48,6 +48,25 @@ def test_mark_done_unknown_id(store: TaskStore) -> None:
         store.mark_done(99)
 
 
+def test_add_with_due_date(store: TaskStore) -> None:
+    task = store.add("Ship feature", due="2026-06-01")
+    assert task.due == "2026-06-01"
+
+
+def test_add_invalid_due_date(store: TaskStore) -> None:
+    with pytest.raises(ValueError):
+        store.add("Bad date", due="not-a-date")
+
+
+def test_load_tasks_without_due_field(store_path: Path) -> None:
+    store_path.write_text(
+        '[{"id": 1, "title": "Legacy", "done": false}]',
+        encoding="utf-8",
+    )
+    store = TaskStore(path=store_path)
+    assert store.list_all()[0].due is None
+
+
 def test_persistence(store: TaskStore, store_path: Path) -> None:
     store.add("Persist me")
     data = json.loads(store_path.read_text())
@@ -55,3 +74,12 @@ def test_persistence(store: TaskStore, store_path: Path) -> None:
 
     reloaded = TaskStore(path=store_path)
     assert reloaded.list_all()[0].title == "Persist me"
+
+
+def test_due_date_persistence(store: TaskStore, store_path: Path) -> None:
+    store.add("With due", due="2026-12-31")
+    data = json.loads(store_path.read_text())
+    assert data[0]["due"] == "2026-12-31"
+
+    reloaded = TaskStore(path=store_path)
+    assert reloaded.list_all()[0].due == "2026-12-31"

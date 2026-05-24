@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 DEFAULT_STORE = Path(__file__).parent / "tasks.json"
 
@@ -15,6 +16,21 @@ class Task:
     id: int
     title: str
     done: bool = False
+    due: Optional[str] = None  # ISO date YYYY-MM-DD
+
+
+def parse_due(value: Optional[str]) -> Optional[str]:
+    """Validate and normalize a due date string."""
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"Invalid due date '{text}'; use YYYY-MM-DD") from exc
+    return text
 
 
 class TaskStore:
@@ -40,9 +56,9 @@ class TaskStore:
     def list_all(self) -> List[Task]:
         return list(self._tasks)
 
-    def add(self, title: str) -> Task:
+    def add(self, title: str, due: Optional[str] = None) -> Task:
         next_id = max((t.id for t in self._tasks), default=0) + 1
-        task = Task(id=next_id, title=title.strip())
+        task = Task(id=next_id, title=title.strip(), due=parse_due(due))
         self._tasks.append(task)
         self._save()
         return task
